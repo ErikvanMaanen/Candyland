@@ -13,16 +13,49 @@
 </head>
 <body>
 <div class="container">
-    <h1>Welcome to Candyland Portal</h1>
     <hr>
-    <h3>Movement</h3>
-    <button id="recordMovementBtn">Record movement</button>
-    <span id="movementStatus"></span>
-    <div id="movementResult"></div>
-    <form id="showMovementForm" style="margin-top:10px;">
-        <button type="submit">Show movement data</button>
+    <h3>Video</h3>
+    <button id="recordVideoBtn">Record video</button>
+    <span id="videoStatus"></span>
+    <video id="videoPlayback" controls style="display:none;max-width:100%;margin-top:10px;"></video>
+    <form id="showVideosForm" style="margin-top:10px;">
+        <button type="submit">Show recorded videos</button>
     </form>
-    <div id="movementData"></div>
+    <div id="videosList"></div>
+    <h1 style="margin-bottom: 10px;">Welcome to Candyland Portal</h1>
+    <div style="display: flex; flex-wrap: wrap; gap: 20px; justify-content: center;">
+        <div style="min-width:220px;max-width:320px;flex:1;padding:10px;border:1px solid #ccc;border-radius:8px;background:#fafbfc;">
+            <b>Movement</b><br>
+            <button id="recordMovementBtn" style="margin:5px 0;">Record movement</button>
+            <span id="movementStatus"></span>
+            <div id="movementResult" style="margin-bottom:5px;"></div>
+            <form id="showMovementForm">
+                <button type="submit">Show movement data</button>
+            </form>
+            <div id="movementData"></div>
+        </div>
+        <div style="min-width:220px;max-width:320px;flex:1;padding:10px;border:1px solid #ccc;border-radius:8px;background:#fafbfc;">
+            <b>Message to self</b><br>
+            <button id="recordBtn" style="margin:5px 0;">Message to self</button>
+            <span id="recordingStatus"></span>
+            <audio id="audioPlayback" controls style="display:none;width:100%;margin:5px 0;"></audio>
+            <div id="transcription"></div>
+            <form id="openArchiveForm" style="margin-top:10px;">
+                <button type="submit">Open archive</button>
+            </form>
+            <div id="archive"></div>
+        </div>
+        <div style="min-width:220px;max-width:320px;flex:1;padding:10px;border:1px solid #ccc;border-radius:8px;background:#fafbfc;">
+            <b>Video</b><br>
+            <button id="recordVideoBtn" style="margin:5px 0;">Record video</button>
+            <span id="videoStatus"></span>
+            <video id="videoPlayback" controls style="display:none;max-width:100%;margin:5px 0;"></video>
+            <form id="showVideosForm" style="margin-top:10px;">
+                <button type="submit">Show recorded videos</button>
+            </form>
+            <div id="videosList"></div>
+        </div>
+    </div>
     <hr>
     <h3>Message to self</h3>
     <button id="recordBtn">Message to self</button>
@@ -35,6 +68,65 @@
     <div id="archive"></div>
 </div>
 <script>
+// Video recording logic
+const recordVideoBtn = document.getElementById('recordVideoBtn');
+const videoStatus = document.getElementById('videoStatus');
+const videoPlayback = document.getElementById('videoPlayback');
+let videoRecorder;
+let videoChunks = [];
+
+recordVideoBtn.addEventListener('click', async function() {
+    if (videoRecorder && videoRecorder.state === 'recording') {
+        videoRecorder.stop();
+        recordVideoBtn.textContent = 'Record video';
+        videoStatus.textContent = '';
+        return;
+    }
+    if (!navigator.mediaDevices) {
+        alert('Video recording not supported in this browser.');
+        return;
+    }
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        videoRecorder = new MediaRecorder(stream);
+        videoChunks = [];
+        videoRecorder.ondataavailable = e => {
+            if (e.data.size > 0) videoChunks.push(e.data);
+        };
+        videoRecorder.onstop = async () => {
+            const videoBlob = new Blob(videoChunks, { type: 'video/webm' });
+            videoPlayback.src = URL.createObjectURL(videoBlob);
+            videoPlayback.style.display = 'block';
+            // Upload video
+            const formData = new FormData();
+            formData.append('video', videoBlob, 'video_' + Date.now() + '.webm');
+            await fetch('/record_video', { method: 'POST', body: formData });
+        };
+        videoRecorder.start();
+        recordVideoBtn.textContent = 'Stop video recording';
+        videoStatus.textContent = ' Recording...';
+    } catch (err) {
+        alert('Could not start video recording: ' + err);
+    }
+});
+
+// Show recorded videos
+const showVideosForm = document.getElementById('showVideosForm');
+const videosList = document.getElementById('videosList');
+showVideosForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const res = await fetch('/get_videos');
+    const data = await res.json();
+    if (data.videos && data.videos.length > 0) {
+        let html = '<h4>Recorded Videos</h4>';
+        for (const vid of data.videos) {
+            html += `<video src="${vid.url}" controls style="max-width:100%;margin-bottom:10px;"></video><br>`;
+        }
+        videosList.innerHTML = html;
+    } else {
+        videosList.innerHTML = '<b>No videos found.</b>';
+    }
+});
 // Show movement data
 const showMovementForm = document.getElementById('showMovementForm');
 const movementDataDiv = document.getElementById('movementData');

@@ -17,6 +17,29 @@ app = Flask(__name__)
 
 # ...existing code...
 
+# --- Video recording endpoint ---
+@app.route('/record_video', methods=['POST'])
+def record_video():
+    video = request.files['video']
+    filename = f"video_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.webm"
+    videos_dir = os.path.join('recordings', 'videos')
+    os.makedirs(videos_dir, exist_ok=True)
+    save_path = os.path.join(videos_dir, filename)
+    video.save(save_path)
+    return jsonify({'status': 'ok'})
+
+# --- List recorded videos ---
+@app.route('/get_videos')
+def get_videos():
+    videos_dir = os.path.join('recordings', 'videos')
+    videos = []
+    if os.path.exists(videos_dir):
+        for fname in sorted(os.listdir(videos_dir), reverse=True):
+            if fname.endswith('.webm'):
+                url = url_for('static', filename=f'../recordings/videos/{fname}')
+                videos.append({'url': url, 'name': fname})
+    return jsonify({'videos': videos})
+
 @app.route('/get_movement')
 def get_movement():
     records = []
