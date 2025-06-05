@@ -1,6 +1,6 @@
 pyodbc
 flask
 gunicorn
-speechrecognition
 ffmpeg-python
 werkzeug
+openai-whisper

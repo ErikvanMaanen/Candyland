@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, send_from_directory, jsonify
+from flask import Flask, render_template, request, url_for, jsonify
 
 import subprocess
 import os
@@ -7,11 +7,10 @@ import sqlite3
 import datetime
 from werkzeug.utils import secure_filename
 import wave
-import tempfile
 try:
-    import speech_recognition as sr
+    import whisper
 except ImportError:
-    sr = None
+    whisper = None
 
 app = Flask(__name__)
 
