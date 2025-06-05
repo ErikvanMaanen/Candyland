@@ -25,6 +25,12 @@
         <button type="submit">Run Script (With Args)</button>
     </form>
     <div id="output"></div>
+    <hr>
+    <h3>Message to self</h3>
+    <button id="recordBtn">Message to self</button>
+    <span id="recordingStatus"></span>
+    <audio id="audioPlayback" controls style="display:none;"></audio>
+    <div id="transcription"></div>
 </div>
 <script>
 // Handle script without args
@@ -46,6 +52,51 @@ scriptWithArgsForm.addEventListener('submit', async function(e) {
     });
     const data = await res.json();
     document.getElementById('output').innerText = data.output;
+});
+
+// Audio recording logic
+let mediaRecorder;
+let audioChunks = [];
+const recordBtn = document.getElementById('recordBtn');
+const recordingStatus = document.getElementById('recordingStatus');
+const audioPlayback = document.getElementById('audioPlayback');
+const transcriptionDiv = document.getElementById('transcription');
+
+recordBtn.addEventListener('click', async function() {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+        recordBtn.textContent = 'Message to self';
+        recordingStatus.textContent = '';
+        return;
+    }
+    if (!navigator.mediaDevices) {
+        alert('Audio recording not supported in this browser.');
+        return;
+    }
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+        mediaRecorder.ondataavailable = e => {
+            if (e.data.size > 0) audioChunks.push(e.data);
+        };
+        mediaRecorder.onstop = async () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            audioPlayback.src = URL.createObjectURL(audioBlob);
+            audioPlayback.style.display = 'block';
+            // Upload audio
+            const formData = new FormData();
+            formData.append('audio', audioBlob, 'recording.webm');
+            const res = await fetch('/record_message', { method: 'POST', body: formData });
+            const data = await res.json();
+            transcriptionDiv.innerHTML = '<b>Transcription:</b> ' + (data.transcription || '(none)') + '<br><b>Length:</b> ' + data.length + 's';
+        };
+        mediaRecorder.start();
+        recordBtn.textContent = 'Stop Recording';
+        recordingStatus.textContent = ' Recording...';
+    } catch (err) {
+        alert('Could not start audio recording: ' + err);
+    }
 });
 </script>
 </body>
