@@ -1,3 +1,61 @@
+@app.route('/record_movement', methods=['POST'])
+def record_movement():
+    data = request.get_json().get('data', [])
+    # Use Azure SQL if running in Azure, else use SQLite
+    if os.environ.get('WEBSITE_SITE_NAME'):
+        # Azure SQL
+        conn_str = os.environ.get('AZURE_SQL_CONNECTIONSTRING')
+        if not conn_str:
+            server = os.environ.get('AZURE_SQL_SERVER')
+            database = os.environ.get('AZURE_SQL_DATABASE')
+            username = os.environ.get('AZURE_SQL_USER')
+            password = os.environ.get('AZURE_SQL_PASSWORD')
+            port = os.environ.get('AZURE_SQL_PORT', '1433')
+            conn_str = (
+                f'DRIVER={{ODBC Driver 17 for SQL Server}};'
+                f'SERVER={server},{port};'
+                f'DATABASE={database};'
+                f'UID={username};PWD={password}'
+            )
+        conn = pyodbc.connect(conn_str)
+        cursor = conn.cursor()
+        cursor.execute('''
+            IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Movement' AND xtype='U')
+            CREATE TABLE Movement (
+                id INT IDENTITY(1,1) PRIMARY KEY,
+                timestamp BIGINT,
+                lat FLOAT,
+                lon FLOAT,
+                gx FLOAT,
+                gy FLOAT,
+                gz FLOAT
+            )
+        ''')
+        conn.commit()
+        for entry in data:
+            cursor.execute('''INSERT INTO Movement (timestamp, lat, lon, gx, gy, gz) VALUES (?, ?, ?, ?, ?, ?)''',
+                           entry.get('timestamp'), entry.get('lat'), entry.get('lon'), entry.get('gx'), entry.get('gy'), entry.get('gz'))
+        conn.commit()
+        conn.close()
+    else:
+        # Local SQLite
+        conn = sqlite3.connect('recordings.db')
+        c = conn.cursor()
+        c.execute('''CREATE TABLE IF NOT EXISTS Movement (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp INTEGER,
+            lat REAL,
+            lon REAL,
+            gx REAL,
+            gy REAL,
+            gz REAL
+        )''')
+        for entry in data:
+            c.execute('INSERT INTO Movement (timestamp, lat, lon, gx, gy, gz) VALUES (?, ?, ?, ?, ?, ?)',
+                      (entry.get('timestamp'), entry.get('lat'), entry.get('lon'), entry.get('gx'), entry.get('gy'), entry.get('gz')))
+        conn.commit()
+        conn.close()
+    return jsonify({'status': 'ok'})
 from flask import Flask, render_template, request, redirect, url_for, send_from_directory, jsonify
 
 import subprocess

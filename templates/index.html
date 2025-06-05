@@ -13,6 +13,11 @@
 </head>
 <body>
 <div class="container">
+    <hr>
+    <h3>Record movement</h3>
+    <button id="recordMovementBtn">Record movement</button>
+    <span id="movementStatus"></span>
+    <div id="movementResult"></div>
     <h1>Welcome to Candyland Portal</h1>
     <form action="/show_smiley" method="get" style="margin-bottom: 20px;">
         <button type="submit">Show Smiley</button>
@@ -37,6 +42,66 @@
     <div id="transcription"></div>
 </div>
 <script>
+// Movement recording logic
+const recordMovementBtn = document.getElementById('recordMovementBtn');
+const movementStatus = document.getElementById('movementStatus');
+const movementResult = document.getElementById('movementResult');
+let movementRecording = false;
+let movementInterval = null;
+let movementData = [];
+
+recordMovementBtn.addEventListener('click', function() {
+    if (!movementRecording) {
+        movementData = [];
+        movementRecording = true;
+        recordMovementBtn.textContent = 'Stop movement recording';
+        movementStatus.textContent = ' Recording...';
+        // Start collecting data every second
+        movementInterval = setInterval(() => {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(pos) {
+                    let lat = pos.coords.latitude;
+                    let lon = pos.coords.longitude;
+                    let timestamp = Date.now();
+                    let g = { x: null, y: null, z: null };
+                    if (window.DeviceMotionEvent && window.lastG) {
+                        g = window.lastG;
+                    }
+                    movementData.push({ timestamp, lat, lon, gx: g.x, gy: g.y, gz: g.z });
+                });
+            }
+        }, 1000);
+    } else {
+        movementRecording = false;
+        recordMovementBtn.textContent = 'Record movement';
+        movementStatus.textContent = '';
+        clearInterval(movementInterval);
+        // Send data to backend
+        fetch('/record_movement', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: movementData })
+        })
+        .then(res => res.json())
+        .then(data => {
+            movementResult.innerHTML = '<b>Movement recorded:</b> ' + (data.status || 'error');
+        });
+    }
+});
+
+// Listen for device motion (g-forces)
+window.lastG = { x: null, y: null, z: null };
+if (window.DeviceMotionEvent) {
+    window.addEventListener('devicemotion', function(event) {
+        if (event.accelerationIncludingGravity) {
+            window.lastG = {
+                x: event.accelerationIncludingGravity.x,
+                y: event.accelerationIncludingGravity.y,
+                z: event.accelerationIncludingGravity.z
+            };
+        }
+    });
+}
 // Handle Open Archive
 const openArchiveForm = document.getElementById('openArchiveForm');
 const archiveDiv = document.getElementById('archive');
