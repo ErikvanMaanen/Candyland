@@ -8,9 +8,9 @@ from werkzeug.utils import secure_filename
 import wave
 import tempfile
 try:
-    import speech_recognition as sr
+    import whisper
 except ImportError:
-    sr = None
+    whisper = None
 
 app = Flask(__name__)
 
@@ -240,17 +240,15 @@ def record_message():
     else:
         length = 0
 
-    # Transcribe audio (if possible)
+    # Transcribe audio using OpenAI Whisper (local base model)
     transcription = ''
-    if sr and wav_path and os.path.exists(wav_path):
-        recognizer = sr.Recognizer()
-        with sr.AudioFile(wav_path) as source:
-            audio_data = recognizer.record(source)
-            try:
-                # Use Google's API with language auto-detection
-                transcription = recognizer.recognize_google(audio_data, language='')
-            except Exception:
-                transcription = ''
+    if whisper and wav_path and os.path.exists(wav_path):
+        try:
+            model = whisper.load_model('base')
+            result = model.transcribe(wav_path)
+            transcription = result.get('text', '')
+        except Exception:
+            transcription = ''
 
 
     # Use Azure SQL if running in Azure, else use SQLite
