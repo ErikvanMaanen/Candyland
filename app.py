@@ -13,6 +13,11 @@ try:
 except ImportError:
     sr = None
 
+try:
+    import whisper
+except ImportError:
+    whisper = None
+
 app = Flask(__name__)
 
 # ...existing code...
