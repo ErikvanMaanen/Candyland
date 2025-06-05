@@ -1,16 +1,17 @@
-import os
+from flask import Flask, render_template, request, redirect, url_for, send_from_directory, jsonify
+
 import subprocess
+import os
 import pyodbc
 import sqlite3
 import datetime
-from flask import Flask, render_template, request, redirect, url_for, send_from_directory, jsonify
 from werkzeug.utils import secure_filename
 import wave
 import tempfile
 try:
-    import whisper
+    import speech_recognition as sr
 except ImportError:
-    whisper = None
+    sr = None
 
 app = Flask(__name__)
 
@@ -63,22 +64,6 @@ def get_movement():
             })
         conn.close()
     return jsonify({'records': records})
-from flask import Flask, render_template, request, redirect, url_for, send_from_directory, jsonify
-
-import subprocess
-import os
-import pyodbc
-import sqlite3
-import datetime
-from werkzeug.utils import secure_filename
-import wave
-import tempfile
-try:
-    import speech_recognition as sr
-except ImportError:
-    sr = None
-
-app = Flask(__name__)
 
 @app.route('/record_movement', methods=['POST'])
 def record_movement():
