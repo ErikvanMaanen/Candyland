@@ -25,6 +25,10 @@
         <button type="submit">Run Script (With Args)</button>
     </form>
     <div id="output"></div>
+    <form id="openArchiveForm" style="margin-top:20px;">
+        <button type="submit">Open archive</button>
+    </form>
+    <div id="archive"></div>
     <hr>
     <h3>Message to self</h3>
     <button id="recordBtn">Message to self</button>
@@ -33,6 +37,24 @@
     <div id="transcription"></div>
 </div>
 <script>
+// Handle Open Archive
+const openArchiveForm = document.getElementById('openArchiveForm');
+const archiveDiv = document.getElementById('archive');
+openArchiveForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const res = await fetch('/get_archive');
+    const data = await res.json();
+    if (data.records && data.records.length > 0) {
+        let html = '<h3>Archive</h3><table border="1" style="margin:auto;"><tr><th>Date</th><th>Filename</th><th>Length (s)</th><th>Transcription</th></tr>';
+        for (const rec of data.records) {
+            html += `<tr><td>${rec.date}</td><td>${rec.filename}</td><td>${rec.length}</td><td>${rec.transcription || ''}</td></tr>`;
+        }
+        html += '</table>';
+        archiveDiv.innerHTML = html;
+    } else {
+        archiveDiv.innerHTML = '<b>No records found.</b>';
+    }
+});
 // Handle script without args
 const scriptNoArgsForm = document.getElementById('scriptNoArgsForm');
 scriptNoArgsForm.addEventListener('submit', async function(e) {

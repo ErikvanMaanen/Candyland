@@ -15,6 +15,51 @@ except ImportError:
 
 app = Flask(__name__)
 
+@app.route('/get_archive')
+def get_archive():
+    # Use Azure SQL if running in Azure, else use SQLite
+    records = []
+    if os.environ.get('WEBSITE_SITE_NAME'):
+        # Azure SQL
+        conn_str = os.environ.get('AZURE_SQL_CONNECTIONSTRING')
+        if not conn_str:
+            server = os.environ.get('AZURE_SQL_SERVER')
+            database = os.environ.get('AZURE_SQL_DATABASE')
+            username = os.environ.get('AZURE_SQL_USER')
+            password = os.environ.get('AZURE_SQL_PASSWORD')
+            port = os.environ.get('AZURE_SQL_PORT', '1433')
+            conn_str = (
+                f'DRIVER={{ODBC Driver 17 for SQL Server}};'
+                f'SERVER={server},{port};'
+                f'DATABASE={database};'
+                f'UID={username};PWD={password}'
+            )
+        conn = pyodbc.connect(conn_str)
+        cursor = conn.cursor()
+        cursor.execute('SELECT date, filename, length, transcription FROM Recordings ORDER BY id DESC')
+        for row in cursor.fetchall():
+            records.append({
+                'date': row[0],
+                'filename': row[1],
+                'length': row[2],
+                'transcription': row[3]
+            })
+        conn.close()
+    else:
+        # Local SQLite
+        conn = sqlite3.connect('recordings.db')
+        c = conn.cursor()
+        c.execute('SELECT date, filename, length, transcription FROM Recordings ORDER BY id DESC')
+        for row in c.fetchall():
+            records.append({
+                'date': row[0],
+                'filename': row[1],
+                'length': row[2],
+                'transcription': row[3]
+            })
+        conn.close()
+    return jsonify({'records': records})
+
 @app.route('/')
 def home():
     return render_template('index.html')
@@ -42,14 +87,16 @@ def run_script_with_args():
 def record_message():
     audio = request.files['audio']
     filename = secure_filename(f"recording_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.webm")
-    save_path = os.path.join('static', filename)
+    recordings_dir = os.path.join('recordings')
+    os.makedirs(recordings_dir, exist_ok=True)
+    save_path = os.path.join(recordings_dir, filename)
     audio.save(save_path)
 
     # Convert webm to wav for transcription (if possible)
     wav_path = None
     try:
         import ffmpeg
-        wav_path = save_path.replace('.webm', '.wav')
+        wav_path = os.path.join(recordings_dir, filename.replace('.webm', '.wav'))
         (
             ffmpeg
             .input(save_path)
@@ -76,7 +123,8 @@ def record_message():
         with sr.AudioFile(wav_path) as source:
             audio_data = recognizer.record(source)
             try:
-                transcription = recognizer.recognize_google(audio_data)
+                # Use Google's API with language auto-detection
+                transcription = recognizer.recognize_google(audio_data, language='')
             except Exception:
                 transcription = ''
 
