@@ -13,35 +13,46 @@
 </head>
 <body>
 <div class="container">
+    <h1>Welcome to Candyland Portal</h1>
     <hr>
-    <h3>Record movement</h3>
+    <h3>Movement</h3>
     <button id="recordMovementBtn">Record movement</button>
     <span id="movementStatus"></span>
     <div id="movementResult"></div>
-    <h1>Welcome to Candyland Portal</h1>
-    <form action="/show_smiley" method="get" style="margin-bottom: 20px;">
-        <button type="submit">Show Smiley</button>
+    <form id="showMovementForm" style="margin-top:10px;">
+        <button type="submit">Show movement data</button>
     </form>
-    <form id="scriptNoArgsForm">
-        <button type="submit">Run Script (No Args)</button>
-    </form>
-    <form id="scriptWithArgsForm">
-        <input type="text" name="arg" placeholder="Enter argument" required>
-        <button type="submit">Run Script (With Args)</button>
-    </form>
-    <div id="output"></div>
-    <form id="openArchiveForm" style="margin-top:20px;">
-        <button type="submit">Open archive</button>
-    </form>
-    <div id="archive"></div>
+    <div id="movementData"></div>
     <hr>
     <h3>Message to self</h3>
     <button id="recordBtn">Message to self</button>
     <span id="recordingStatus"></span>
     <audio id="audioPlayback" controls style="display:none;"></audio>
     <div id="transcription"></div>
+    <form id="openArchiveForm" style="margin-top:20px;">
+        <button type="submit">Open archive</button>
+    </form>
+    <div id="archive"></div>
 </div>
 <script>
+// Show movement data
+const showMovementForm = document.getElementById('showMovementForm');
+const movementDataDiv = document.getElementById('movementData');
+showMovementForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const res = await fetch('/get_movement');
+    const data = await res.json();
+    if (data.records && data.records.length > 0) {
+        let html = '<h4>Movement Data</h4><table border="1" style="margin:auto;"><tr><th>Timestamp</th><th>Lat</th><th>Lon</th><th>Gx</th><th>Gy</th><th>Gz</th></tr>';
+        for (const rec of data.records) {
+            html += `<tr><td>${new Date(rec.timestamp).toLocaleString()}</td><td>${rec.lat}</td><td>${rec.lon}</td><td>${rec.gx}</td><td>${rec.gy}</td><td>${rec.gz}</td></tr>`;
+        }
+        html += '</table>';
+        movementDataDiv.innerHTML = html;
+    } else {
+        movementDataDiv.innerHTML = '<b>No movement data found.</b>';
+    }
+});
 // Movement recording logic
 const recordMovementBtn = document.getElementById('recordMovementBtn');
 const movementStatus = document.getElementById('movementStatus');

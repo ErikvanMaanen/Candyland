@@ -1,3 +1,68 @@
+import os
+import subprocess
+import pyodbc
+import sqlite3
+import datetime
+from flask import Flask, render_template, request, redirect, url_for, send_from_directory, jsonify
+from werkzeug.utils import secure_filename
+import wave
+import tempfile
+try:
+    import speech_recognition as sr
+except ImportError:
+    sr = None
+
+app = Flask(__name__)
+
+# ...existing code...
+
+@app.route('/get_movement')
+def get_movement():
+    records = []
+    if os.environ.get('WEBSITE_SITE_NAME'):
+        # Azure SQL
+        conn_str = os.environ.get('AZURE_SQL_CONNECTIONSTRING')
+        if not conn_str:
+            server = os.environ.get('AZURE_SQL_SERVER')
+            database = os.environ.get('AZURE_SQL_DATABASE')
+            username = os.environ.get('AZURE_SQL_USER')
+            password = os.environ.get('AZURE_SQL_PASSWORD')
+            port = os.environ.get('AZURE_SQL_PORT', '1433')
+            conn_str = (
+                f'DRIVER={{ODBC Driver 17 for SQL Server}};'
+                f'SERVER={server},{port};'
+                f'DATABASE={database};'
+                f'UID={username};PWD={password}'
+            )
+        conn = pyodbc.connect(conn_str)
+        cursor = conn.cursor()
+        cursor.execute('SELECT timestamp, lat, lon, gx, gy, gz FROM Movement ORDER BY id DESC')
+        for row in cursor.fetchall():
+            records.append({
+                'timestamp': row[0],
+                'lat': row[1],
+                'lon': row[2],
+                'gx': row[3],
+                'gy': row[4],
+                'gz': row[5]
+            })
+        conn.close()
+    else:
+        # Local SQLite
+        conn = sqlite3.connect('recordings.db')
+        c = conn.cursor()
+        c.execute('SELECT timestamp, lat, lon, gx, gy, gz FROM Movement ORDER BY id DESC')
+        for row in c.fetchall():
+            records.append({
+                'timestamp': row[0],
+                'lat': row[1],
+                'lon': row[2],
+                'gx': row[3],
+                'gy': row[4],
+                'gz': row[5]
+            })
+        conn.close()
+    return jsonify({'records': records})
 from flask import Flask, render_template, request, redirect, url_for, send_from_directory, jsonify
 
 import subprocess
