@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Candyland Portal</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .container { max-width: 500px; margin: auto; text-align: center; }
+        img { max-width: 200px; margin: 20px 0; }
+        button, input[type="text"] { margin: 10px; padding: 10px; }
+        #output { margin-top: 20px; color: #333; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Welcome to Candyland Portal</h1>
+    <form action="/show_smiley" method="get" style="margin-bottom: 20px;">
+        <button type="submit">Show Smiley</button>
+    </form>
+    <form id="scriptNoArgsForm">
+        <button type="submit">Run Script (No Args)</button>
+    </form>
+    <form id="scriptWithArgsForm">
+        <input type="text" name="arg" placeholder="Enter argument" required>
+        <button type="submit">Run Script (With Args)</button>
+    </form>
+    <div id="output"></div>
+</div>
+<script>
+// Handle script without args
+const scriptNoArgsForm = document.getElementById('scriptNoArgsForm');
+scriptNoArgsForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const res = await fetch('/run_script_no_args', { method: 'POST' });
+    const data = await res.json();
+    document.getElementById('output').innerText = data.output;
+});
+// Handle script with args
+const scriptWithArgsForm = document.getElementById('scriptWithArgsForm');
+scriptWithArgsForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const formData = new FormData(scriptWithArgsForm);
+    const res = await fetch('/run_script_with_args', {
+        method: 'POST',
+        body: formData
+    });
+    const data = await res.json();
+    document.getElementById('output').innerText = data.output;
+});
+</script>
+</body>
+</html>
