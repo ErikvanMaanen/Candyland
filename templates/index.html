@@ -5,70 +5,65 @@
     <title>Candyland Portal</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 40px; }
-        .container { max-width: 500px; margin: auto; text-align: center; }
-        img { max-width: 200px; margin: 20px 0; }
-        button, input[type="text"] { margin: 10px; padding: 10px; }
-        #output { margin-top: 20px; color: #333; }
+        h1 { text-align: center; }
+        .section { border: 1px solid #ccc; border-radius: 8px; padding: 15px; margin: 20px auto; max-width: 600px; }
+        button, input[type="text"] { padding: 10px; margin: 5px 0; }
     </style>
 </head>
 <body>
-<div class="container">
-    <hr>
-    <h3>Video</h3>
-    <button id="recordVideoBtn">Record video</button>
-    <span id="videoStatus"></span>
-    <video id="videoPlayback" controls style="display:none;max-width:100%;margin-top:10px;"></video>
-    <form id="showVideosForm" style="margin-top:10px;">
-        <button type="submit">Show recorded videos</button>
-    </form>
-    <div id="videosList"></div>
-    <h1 style="margin-bottom: 10px;">Welcome to Candyland Portal</h1>
-    <div style="display: flex; flex-wrap: wrap; gap: 20px; justify-content: center;">
-        <div style="min-width:220px;max-width:320px;flex:1;padding:10px;border:1px solid #ccc;border-radius:8px;background:#fafbfc;">
-            <b>Movement</b><br>
-            <button id="recordMovementBtn" style="margin:5px 0;">Record movement</button>
-            <span id="movementStatus"></span>
-            <div id="movementResult" style="margin-bottom:5px;"></div>
-            <form id="showMovementForm">
-                <button type="submit">Show movement data</button>
-            </form>
-            <div id="movementData"></div>
-        </div>
-        <div style="min-width:220px;max-width:320px;flex:1;padding:10px;border:1px solid #ccc;border-radius:8px;background:#fafbfc;">
-            <b>Message to self</b><br>
-            <button id="recordBtn" style="margin:5px 0;">Message to self</button>
-            <span id="recordingStatus"></span>
-            <audio id="audioPlayback" controls style="display:none;width:100%;margin:5px 0;"></audio>
-            <div id="transcription"></div>
-            <form id="openArchiveForm" style="margin-top:10px;">
-                <button type="submit">Open archive</button>
-            </form>
-            <div id="archive"></div>
-        </div>
-        <div style="min-width:220px;max-width:320px;flex:1;padding:10px;border:1px solid #ccc;border-radius:8px;background:#fafbfc;">
-            <b>Video</b><br>
-            <button id="recordVideoBtn" style="margin:5px 0;">Record video</button>
-            <span id="videoStatus"></span>
-            <video id="videoPlayback" controls style="display:none;max-width:100%;margin:5px 0;"></video>
-            <form id="showVideosForm" style="margin-top:10px;">
-                <button type="submit">Show recorded videos</button>
-            </form>
-            <div id="videosList"></div>
-        </div>
-    </div>
-    <hr>
-    <h3>Message to self</h3>
+<h1>Welcome to Candyland Portal</h1>
+
+<div class="section" id="audio-section">
+    <h2>Message to self</h2>
     <button id="recordBtn">Message to self</button>
     <span id="recordingStatus"></span>
-    <audio id="audioPlayback" controls style="display:none;"></audio>
+    <audio id="audioPlayback" controls style="display:none;width:100%;margin-top:10px;"></audio>
     <div id="transcription"></div>
-    <form id="openArchiveForm" style="margin-top:20px;">
+    <form id="openArchiveForm">
         <button type="submit">Open archive</button>
     </form>
     <div id="archive"></div>
 </div>
+
+<div class="section" id="movement-section">
+    <h2>Movement</h2>
+    <button id="recordMovementBtn">Record movement</button>
+    <span id="movementStatus"></span>
+    <div id="movementResult"></div>
+    <form id="showMovementForm">
+        <button type="submit">Show movement data</button>
+    </form>
+    <div id="movementData"></div>
+</div>
+
+<div class="section" id="video-section">
+    <h2>Video</h2>
+    <button id="recordVideoBtn">Record video</button>
+    <span id="videoStatus"></span>
+    <video id="videoPlayback" controls style="display:none;max-width:100%;margin-top:10px;"></video>
+    <form id="showVideosForm">
+        <button type="submit">Show recorded videos</button>
+    </form>
+    <div id="videosList"></div>
+</div>
+
+<div class="section" id="scripts-section">
+    <h2>Scripts</h2>
+    <form id="scriptNoArgsForm">
+        <button type="submit">Run script without args</button>
+    </form>
+    <form id="scriptWithArgsForm">
+        <input type="text" name="arg" placeholder="argument">
+        <button type="submit">Run script with arg</button>
+    </form>
+    <pre id="output"></pre>
+</div>
+
+<div style="text-align:center;">
+    <a href="/show_smiley">Show smiley</a>
+</div>
+
 <script>
-// Video recording logic
 const recordVideoBtn = document.getElementById('recordVideoBtn');
 const videoStatus = document.getElementById('videoStatus');
 const videoPlayback = document.getElementById('videoPlayback');
@@ -90,30 +85,26 @@ recordVideoBtn.addEventListener('click', async function() {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         videoRecorder = new MediaRecorder(stream);
         videoChunks = [];
-        videoRecorder.ondataavailable = e => {
-            if (e.data.size > 0) videoChunks.push(e.data);
-        };
+        videoRecorder.ondataavailable = e => { if (e.data.size > 0) videoChunks.push(e.data); };
         videoRecorder.onstop = async () => {
             const videoBlob = new Blob(videoChunks, { type: 'video/webm' });
             videoPlayback.src = URL.createObjectURL(videoBlob);
             videoPlayback.style.display = 'block';
-            // Upload video
             const formData = new FormData();
             formData.append('video', videoBlob, 'video_' + Date.now() + '.webm');
             await fetch('/record_video', { method: 'POST', body: formData });
         };
         videoRecorder.start();
-        recordVideoBtn.textContent = 'Stop video recording';
+        recordVideoBtn.textContent = 'Stop recording';
         videoStatus.textContent = ' Recording...';
     } catch (err) {
         alert('Could not start video recording: ' + err);
     }
 });
 
-// Show recorded videos
 const showVideosForm = document.getElementById('showVideosForm');
 const videosList = document.getElementById('videosList');
-showVideosForm.addEventListener('submit', async function(e) {
+showVideosForm.addEventListener('submit', async e => {
     e.preventDefault();
     const res = await fetch('/get_videos');
     const data = await res.json();
@@ -127,28 +118,12 @@ showVideosForm.addEventListener('submit', async function(e) {
         videosList.innerHTML = '<b>No videos found.</b>';
     }
 });
-// Show movement data
-const showMovementForm = document.getElementById('showMovementForm');
-const movementDataDiv = document.getElementById('movementData');
-showMovementForm.addEventListener('submit', async function(e) {
-    e.preventDefault();
-    const res = await fetch('/get_movement');
-    const data = await res.json();
-    if (data.records && data.records.length > 0) {
-        let html = '<h4>Movement Data</h4><table border="1" style="margin:auto;"><tr><th>Timestamp</th><th>Lat</th><th>Lon</th><th>Gx</th><th>Gy</th><th>Gz</th></tr>';
-        for (const rec of data.records) {
-            html += `<tr><td>${new Date(rec.timestamp).toLocaleString()}</td><td>${rec.lat}</td><td>${rec.lon}</td><td>${rec.gx}</td><td>${rec.gy}</td><td>${rec.gz}</td></tr>`;
-        }
-        html += '</table>';
-        movementDataDiv.innerHTML = html;
-    } else {
-        movementDataDiv.innerHTML = '<b>No movement data found.</b>';
-    }
-});
-// Movement recording logic
+
 const recordMovementBtn = document.getElementById('recordMovementBtn');
 const movementStatus = document.getElementById('movementStatus');
 const movementResult = document.getElementById('movementResult');
+const showMovementForm = document.getElementById('showMovementForm');
+const movementDataDiv = document.getElementById('movementData');
 let movementRecording = false;
 let movementInterval = null;
 let movementData = [];
@@ -159,7 +134,6 @@ recordMovementBtn.addEventListener('click', function() {
         movementRecording = true;
         recordMovementBtn.textContent = 'Stop movement recording';
         movementStatus.textContent = ' Recording...';
-        // Start collecting data every second
         movementInterval = setInterval(() => {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(function(pos) {
@@ -179,7 +153,6 @@ recordMovementBtn.addEventListener('click', function() {
         recordMovementBtn.textContent = 'Record movement';
         movementStatus.textContent = '';
         clearInterval(movementInterval);
-        // Send data to backend
         fetch('/record_movement', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -192,7 +165,22 @@ recordMovementBtn.addEventListener('click', function() {
     }
 });
 
-// Listen for device motion (g-forces)
+showMovementForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    const res = await fetch('/get_movement');
+    const data = await res.json();
+    if (data.records && data.records.length > 0) {
+        let html = '<h4>Movement Data</h4><table border="1" style="margin:auto;"><tr><th>Timestamp</th><th>Lat</th><th>Lon</th><th>Gx</th><th>Gy</th><th>Gz</th></tr>';
+        for (const rec of data.records) {
+            html += `<tr><td>${new Date(rec.timestamp).toLocaleString()}</td><td>${rec.lat}</td><td>${rec.lon}</td><td>${rec.gx}</td><td>${rec.gy}</td><td>${rec.gz}</td></tr>`;
+        }
+        html += '</table>';
+        movementDataDiv.innerHTML = html;
+    } else {
+        movementDataDiv.innerHTML = '<b>No movement data found.</b>';
+    }
+});
+
 window.lastG = { x: null, y: null, z: null };
 if (window.DeviceMotionEvent) {
     window.addEventListener('devicemotion', function(event) {
@@ -205,10 +193,10 @@ if (window.DeviceMotionEvent) {
         }
     });
 }
-// Handle Open Archive
+
 const openArchiveForm = document.getElementById('openArchiveForm');
 const archiveDiv = document.getElementById('archive');
-openArchiveForm.addEventListener('submit', async function(e) {
+openArchiveForm.addEventListener('submit', async e => {
     e.preventDefault();
     const res = await fetch('/get_archive');
     const data = await res.json();
@@ -223,17 +211,17 @@ openArchiveForm.addEventListener('submit', async function(e) {
         archiveDiv.innerHTML = '<b>No records found.</b>';
     }
 });
-// Handle script without args
+
 const scriptNoArgsForm = document.getElementById('scriptNoArgsForm');
-scriptNoArgsForm.addEventListener('submit', async function(e) {
+scriptNoArgsForm.addEventListener('submit', async e => {
     e.preventDefault();
     const res = await fetch('/run_script_no_args', { method: 'POST' });
     const data = await res.json();
     document.getElementById('output').innerText = data.output;
 });
-// Handle script with args
+
 const scriptWithArgsForm = document.getElementById('scriptWithArgsForm');
-scriptWithArgsForm.addEventListener('submit', async function(e) {
+scriptWithArgsForm.addEventListener('submit', async e => {
     e.preventDefault();
     const formData = new FormData(scriptWithArgsForm);
     const res = await fetch('/run_script_with_args', {
@@ -244,7 +232,6 @@ scriptWithArgsForm.addEventListener('submit', async function(e) {
     document.getElementById('output').innerText = data.output;
 });
 
-// Audio recording logic
 let mediaRecorder;
 let audioChunks = [];
 const recordBtn = document.getElementById('recordBtn');
@@ -267,14 +254,11 @@ recordBtn.addEventListener('click', async function() {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         mediaRecorder = new MediaRecorder(stream);
         audioChunks = [];
-        mediaRecorder.ondataavailable = e => {
-            if (e.data.size > 0) audioChunks.push(e.data);
-        };
+        mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
         mediaRecorder.onstop = async () => {
             const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
             audioPlayback.src = URL.createObjectURL(audioBlob);
             audioPlayback.style.display = 'block';
-            // Upload audio
             const formData = new FormData();
             formData.append('audio', audioBlob, 'recording.webm');
             const res = await fetch('/record_message', { method: 'POST', body: formData });
