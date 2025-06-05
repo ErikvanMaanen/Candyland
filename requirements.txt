@@ -4,3 +4,4 @@ gunicorn
 speechrecognition
 ffmpeg-python
 werkzeug
+openai-whisper
