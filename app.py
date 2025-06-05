@@ -196,6 +196,10 @@ def get_archive():
 def home():
     return render_template('index.html')
 
+@app.route('/extras')
+def extras_page():
+    return render_template('extras.html')
+
 @app.route('/show_smiley')
 def show_smiley():
     return render_template('smiley.html')
