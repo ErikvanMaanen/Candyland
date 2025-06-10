@@ -201,6 +201,11 @@ def get_archive():
 def home():
     return render_template('index.html')
 
+# Route for Functions 1 page containing the previous portal functionality
+@app.route('/functions1')
+def functions1():
+    return render_template('functions1.html')
+
 @app.route('/show_smiley')
 def show_smiley():
     return render_template('smiley.html')
