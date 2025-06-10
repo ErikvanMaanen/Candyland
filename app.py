@@ -13,10 +13,6 @@ try:
 except ImportError:
     sr = None
 
-try:
-    import whisper
-except ImportError:
-    whisper = None
 
 app = Flask(__name__)
 
@@ -258,15 +254,8 @@ def record_message():
     else:
         length = 0
 
-    # Transcribe audio using OpenAI Whisper (local base model)
+    # Prepare transcription value
     transcription = ''
-    if whisper and wav_path and os.path.exists(wav_path):
-        try:
-            model = whisper.load_model('base')
-            result = model.transcribe(wav_path)
-            transcription = result.get('text', '')
-        except Exception:
-            transcription = ''
 
 
     # Use Azure SQL if running in Azure, else use SQLite
