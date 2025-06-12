@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, send_from_directory, jsonify
+from flask import Flask, render_template, request, redirect, url_for, send_from_directory, jsonify, session
 
 import subprocess
 import os
@@ -8,6 +8,8 @@ import datetime
 from werkzeug.utils import secure_filename
 import wave
 import tempfile
+import hashlib
+from functools import wraps
 try:
     import speech_recognition as sr
 except ImportError:
@@ -15,11 +17,26 @@ except ImportError:
 
 
 app = Flask(__name__)
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'change_me')
+
+# Precomputed SHA3-512 hash of the allowed password
+HASHED_PASSWORD = "61267cb82444fd165700bd0c4f7d71c5b09130a7ef513b65797487f824a924ea26de62080a191b08c5904b118fa11a4134c57f677cfddc8398a1811cdf968830"
+
+
+def login_required(func):
+    """Simple decorator to ensure the user is authenticated."""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if not session.get('authenticated'):
+            return redirect(url_for('login'))
+        return func(*args, **kwargs)
+    return wrapper
 
 # ...existing code...
 
 # --- Video recording endpoint ---
 @app.route('/record_video', methods=['POST'])
+@login_required
 def record_video():
     video = request.files['video']
     filename = f"video_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.webm"
@@ -31,6 +48,7 @@ def record_video():
 
 # --- List recorded videos ---
 @app.route('/get_videos')
+@login_required
 def get_videos():
     videos_dir = os.path.join('recordings', 'videos')
     videos = []
@@ -42,6 +60,7 @@ def get_videos():
     return jsonify({'videos': videos})
 
 @app.route('/get_movement')
+@login_required
 def get_movement():
     records = []
     if os.environ.get('WEBSITE_SITE_NAME'):
@@ -90,6 +109,7 @@ def get_movement():
     return jsonify({'records': records})
 
 @app.route('/record_movement', methods=['POST'])
+@login_required
 def record_movement():
     data = request.get_json().get('data', [])
     # Use Azure SQL if running in Azure, else use SQLite
@@ -149,6 +169,7 @@ def record_movement():
     return jsonify({'status': 'ok'})
 
 @app.route('/get_archive')
+@login_required
 def get_archive():
     # Use Azure SQL if running in Azure, else use SQLite
     records = []
@@ -193,26 +214,44 @@ def get_archive():
         conn.close()
     return jsonify({'records': records})
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    error = None
+    if request.method == 'POST':
+        password = request.form.get('password', '')
+        hashed = hashlib.sha3_512(password.encode()).hexdigest()
+        if hashed == HASHED_PASSWORD:
+            session['authenticated'] = True
+            return redirect(url_for('home'))
+        else:
+            error = 'Invalid password'
+    return render_template('login.html', error=error)
+
 @app.route('/')
+@login_required
 def home():
     return render_template('index.html')
 
 # Route for Functions 1 page containing the previous portal functionality
 @app.route('/functions1')
+@login_required
 def functions1():
     return render_template('functions1.html')
 
 @app.route('/show_smiley')
+@login_required
 def show_smiley():
     return render_template('smiley.html')
 
 @app.route('/run_script_no_args', methods=['POST'])
+@login_required
 def run_script_no_args():
     # Replace 'script_no_args.py' with your script name
     result = subprocess.run(['python', 'script_no_args.py'], capture_output=True, text=True)
     return jsonify({'output': result.stdout})
 
 @app.route('/run_script_with_args', methods=['POST'])
+@login_required
 def run_script_with_args():
     arg = request.form.get('arg')
     # Replace 'script_with_args.py' with your script name
@@ -222,6 +261,7 @@ def run_script_with_args():
 
 # --- Audio recording endpoint ---
 @app.route('/record_message', methods=['POST'])
+@login_required
 def record_message():
     audio = request.files['audio']
     filename = secure_filename(f"recording_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.webm")
