@@ -20,7 +20,7 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'change_me')
 
 # Precomputed SHA3-512 hash of the allowed password
-HASHED_PASSWORD = "61267cb82444fd165700bd0c4f7d71c5b09130a7ef513b65797487f824a924ea26de62080a191b08c5904b118fa11a4134c57f677cfddc8398a1811cdf968830"
+HASHED_PASSWORD = "16725c4d35c707477e09bee390fbb27e3e294fe84a807940c8e8349891b6ef3137bf18be05144e9adb869436c96b3ba1c1a8b70c2543c5ade24e54b8644f3a47"
 
 
 def login_required(func):
