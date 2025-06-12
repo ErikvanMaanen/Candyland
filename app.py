@@ -10,6 +10,8 @@ import wave
 import tempfile
 import hashlib
 import requests
+import uuid
+import qrcode
 from functools import wraps
 try:
     import speech_recognition as sr
@@ -296,11 +298,27 @@ def checkout():
     rate = fetch_btc_rate()
     total_btc = round(total_eur / rate, 8)
 
+    # Create a unique hash for this transaction
+    tx_seed = f"{name}|{address}|{email}|{apples}|{bananas}|{total_eur}|{total_btc}|{uuid.uuid4().hex}"
+    tx_hash = hashlib.sha256(tx_seed.encode()).hexdigest()
+
+    # Generate a QR code for payment
+    btc_uri = f"bitcoin:{BTC_ADDRESS}?amount={total_btc}"
+    qr_img = qrcode.make(btc_uri)
+    qr_dir = os.path.join('static', 'qrcodes')
+    os.makedirs(qr_dir, exist_ok=True)
+    qr_filename = f"{tx_hash}.png"
+    qr_path = os.path.join(qr_dir, qr_filename)
+    qr_img.save(qr_path)
+
     return render_template(
         'checkout.html',
         total_eur=total_eur,
         total_btc=total_btc,
         btc_address=BTC_ADDRESS,
+        btc_rate=rate,
+        tx_hash=tx_hash,
+        qr_filename=qr_filename,
     )
 
 

@@ -7,7 +7,11 @@
 <body>
     <h1>Bedankt voor uw bestelling</h1>
     <p>Totaal in EUR: &euro;{{ total_eur }}</p>
+    <p>Huidige koers: 1 BTC = &euro;{{ btc_rate }}</p>
     <p>BTC bedrag: {{ total_btc }} BTC</p>
+    <!-- Transaction hash: {{ tx_hash }} -->
     <p>Stuur BTC naar: <pre>{{ btc_address }}</pre></p>
+    <p>Scan om te betalen:</p>
+    <img src="{{ url_for('static', filename='qrcodes/' + qr_filename) }}" alt="BTC QR">
 </body>
 </html>
