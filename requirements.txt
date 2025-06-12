@@ -5,3 +5,4 @@ speechrecognition
 ffmpeg-python
 werkzeug
 requests
+qrcode
