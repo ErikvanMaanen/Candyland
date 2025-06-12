@@ -9,6 +9,7 @@ from werkzeug.utils import secure_filename
 import wave
 import tempfile
 import hashlib
+import requests
 from functools import wraps
 try:
     import speech_recognition as sr
@@ -348,6 +349,55 @@ def record_message():
         conn.close()
 
     return jsonify({'status': 'ok', 'length': length, 'transcription': transcription})
+
+
+# ------------- Cucumber shop -------------
+
+BITCOIN_ADDRESS = 'bc1qw508d6qe3xvcqzjt5x5sljh5rzc9pveqpqdgk8'
+PRICE_EUR = 5
+
+
+@app.route('/shop')
+def shop():
+    return render_template('shop.html')
+
+
+def get_btc_received(address: str) -> float:
+    """Return total BTC received by address."""
+    try:
+        r = requests.get(f'https://api.blockcypher.com/v1/btc/main/addrs/{address}', timeout=10)
+        data = r.json()
+        satoshis = data.get('total_received', 0)
+        return satoshis / 1e8
+    except Exception:
+        return 0.0
+
+
+@app.route('/checkout', methods=['POST'])
+def checkout():
+    qty = int(request.form.get('quantity', 1))
+    euro_amount = PRICE_EUR * qty
+    try:
+        r = requests.get('https://api.coindesk.com/v1/bpi/currentprice/EUR.json', timeout=10)
+        rate = r.json()['bpi']['EUR']['rate_float']
+    except Exception:
+        rate = 30000  # fallback euro per BTC
+    btc_amount = euro_amount / rate
+    session['expected_btc'] = btc_amount
+    session['initial_received'] = get_btc_received(BITCOIN_ADDRESS)
+    return render_template('checkout.html', address=BITCOIN_ADDRESS,
+                           btc_amount=btc_amount, euro_amount=euro_amount)
+
+
+@app.route('/check_payment')
+def check_payment():
+    expected = session.get('expected_btc', 0)
+    initial = session.get('initial_received', 0)
+    current = get_btc_received(BITCOIN_ADDRESS)
+    if current - initial >= expected:
+        return jsonify({'status': 'paid'})
+    return jsonify({'status': 'pending'})
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000)

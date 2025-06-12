@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Buy Cucumbers</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; text-align: center; }
+        .images { display: flex; justify-content: center; gap: 20px; }
+        .images img { max-width: 300px; height: auto; border-radius: 8px; }
+        form { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Cucumber Shop</h1>
+    <p>Fresh cucumbers for only €5 each. Pay with Bitcoin.</p>
+    <div class="images">
+        <img src="https://source.unsplash.com/featured/400x300/?cucumber" alt="Cucumber photo 1">
+        <img src="https://source.unsplash.com/featured/400x300/?vegetable" alt="Cucumber photo 2">
+    </div>
+    <form action="{{ url_for('checkout') }}" method="post">
+        <label for="qty">Quantity:</label>
+        <input type="number" id="qty" name="quantity" value="1" min="1">
+        <button type="submit">Buy with Bitcoin</button>
+    </form>
+    <p><a href="{{ url_for('home') }}">Back to Home</a></p>
+</body>
+</html>

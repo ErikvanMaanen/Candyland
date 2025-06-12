@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Checkout</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; text-align: center; }
+        code { font-size: 1.2em; }
+    </style>
+</head>
+<body>
+    <h1>Pay with Bitcoin</h1>
+    <p>Amount due: <strong>{{ euro_amount }} EUR</strong> (~<strong>{{ '{:.8f}'.format(btc_amount) }} BTC</strong>)</p>
+    <p>Please send the exact amount to the following address:</p>
+    <code>{{ address }}</code>
+    <p id="status">Waiting for payment...</p>
+
+    <script>
+    function check() {
+        fetch('{{ url_for('check_payment') }}')
+          .then(r => r.json())
+          .then(data => {
+            if (data.status === 'paid') {
+                document.getElementById('status').textContent = 'Payment received!';
+                clearInterval(interval);
+            }
+          });
+    }
+    const interval = setInterval(check, 15000);
+    </script>
+</body>
+</html>
