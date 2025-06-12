@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Appels enzo</title>
+</head>
+<body>
+    <h1>Appels enzo</h1>
+    <form method="post" action="{{ url_for('checkout') }}">
+        <label>Appel €1:</label>
+        <input type="number" name="apples" min="0" value="0"><br>
+        <label>Tros bananen €2:</label>
+        <input type="number" name="bananas" min="0" value="0"><br>
+        <label>Geadresseerde:</label>
+        <input type="text" name="name" required><br>
+        <label>Adres:</label>
+        <input type="text" name="address" required><br>
+        <label>Email (optioneel):</label>
+        <input type="email" name="email"><br>
+        <input type="submit" value="Bestel">
+    </form>
+</body>
+</html>

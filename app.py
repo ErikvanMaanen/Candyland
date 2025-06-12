@@ -9,6 +9,7 @@ from werkzeug.utils import secure_filename
 import wave
 import tempfile
 import hashlib
+import requests
 from functools import wraps
 try:
     import speech_recognition as sr
@@ -21,6 +22,11 @@ app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'change_me')
 
 # Precomputed SHA3-512 hash of the allowed password
 HASHED_PASSWORD = "16725c4d35c707477e09bee390fbb27e3e294fe84a807940c8e8349891b6ef3137bf18be05144e9adb869436c96b3ba1c1a8b70c2543c5ade24e54b8644f3a47"
+
+# Bitcoin payment address for the ecommerce demo
+BTC_ADDRESS = (
+    "PM8TJLtyXMwbcEYy6RTnS3oSyCrA9RCSnx4faV1j8hVBuPYcfgs6cbcHKXdoKjo65owS22RgaVe3jsgdXBGUSA8fL7mLef84nH3QcAZaeK4FDVPiPj43"
+)
 
 
 def login_required(func):
@@ -257,6 +263,45 @@ def run_script_with_args():
     # Replace 'script_with_args.py' with your script name
     result = subprocess.run(['python', 'script_with_args.py', arg], capture_output=True, text=True)
     return jsonify({'output': result.stdout})
+
+
+# --- Simple ecommerce demo ---
+def fetch_btc_rate():
+    """Fetch current BTC rate in EUR. Fallback to a fixed value on error."""
+    try:
+        resp = requests.get('https://api.coindesk.com/v1/bpi/currentprice/EUR.json', timeout=5)
+        data = resp.json()
+        rate = float(data['bpi']['EUR']['rate'].replace(',', ''))
+        return rate
+    except Exception:
+        return 30000.0
+
+
+@app.route('/ecommerce')
+@login_required
+def ecommerce():
+    return render_template('ecommerce.html')
+
+
+@app.route('/checkout', methods=['POST'])
+@login_required
+def checkout():
+    apples = int(request.form.get('apples', 0))
+    bananas = int(request.form.get('bananas', 0))
+    name = request.form.get('name')
+    address = request.form.get('address')
+    email = request.form.get('email')
+
+    total_eur = apples * 1 + bananas * 2
+    rate = fetch_btc_rate()
+    total_btc = round(total_eur / rate, 8)
+
+    return render_template(
+        'checkout.html',
+        total_eur=total_eur,
+        total_btc=total_btc,
+        btc_address=BTC_ADDRESS,
+    )
 
 
 # --- Audio recording endpoint ---
