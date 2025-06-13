@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>QR Generator</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .section { border: 1px solid #ccc; border-radius: 8px; padding: 15px; max-width: 500px; margin: auto; }
+        img { display: block; margin-top: 20px; max-width: 100%; }
+    </style>
+</head>
+<body>
+    <h1>QR Code Generator</h1>
+    <div class="section">
+        <form method="post">
+            <label for="qr_type">Type:</label>
+            <select id="qr_type" name="qr_type">
+                <option value="url">URL</option>
+                <option value="text">Text</option>
+                <option value="btc">BTC transaction</option>
+            </select><br>
+            <div id="url_fields">
+                <label>URL:</label>
+                <input type="text" name="url">
+            </div>
+            <div id="text_fields" style="display:none;">
+                <label>Text:</label>
+                <input type="text" name="text">
+            </div>
+            <div id="btc_fields" style="display:none;">
+                <label>BTC address:</label>
+                <input type="text" name="btc_address"><br>
+                <label>Amount (BTC):</label>
+                <input type="text" name="btc_amount">
+            </div>
+            <br>
+            <input type="submit" value="Generate">
+        </form>
+        {% if qr_filename %}
+            <img src="{{ url_for('static', filename='qrcodes/' + qr_filename) }}" alt="QR Code">
+        {% endif %}
+    </div>
+    <script>
+        const sel = document.getElementById('qr_type');
+        const urlFields = document.getElementById('url_fields');
+        const textFields = document.getElementById('text_fields');
+        const btcFields = document.getElementById('btc_fields');
+        function updateFields() {
+            urlFields.style.display = sel.value === 'url' ? 'block' : 'none';
+            textFields.style.display = sel.value === 'text' ? 'block' : 'none';
+            btcFields.style.display = sel.value === 'btc' ? 'block' : 'none';
+        }
+        sel.addEventListener('change', updateFields);
+        updateFields();
+    </script>
+</body>
+</html>
