@@ -7,11 +7,54 @@
 <body>
     <h1>Bedankt voor uw bestelling</h1>
     <p>Totaal in EUR: &euro;{{ total_eur }}</p>
-    <p>Huidige koers: 1 BTC = &euro;{{ btc_rate }}</p>
-    <p>BTC bedrag: {{ total_btc }} BTC</p>
-    <!-- Transaction hash: {{ tx_hash }} -->
+    <p>Huidige koers: 1 BTC = &euro;<span id="btc-rate">{{ btc_rate }}</span></p>
+    <p>BTC bedrag: <span id="btc-amount">{{ total_btc }} BTC</span></p>
+    <p>Transactie hash: <span id="tx-hash">{{ tx_hash }}</span></p>
     <p>Stuur BTC naar: <pre>{{ btc_address }}</pre></p>
     <p>Scan om te betalen:</p>
-    <img src="{{ url_for('static', filename='qrcodes/' + qr_filename) }}" alt="BTC QR">
+    <img id="qr" src="{{ url_for('static', filename='qrcodes/' + qr_filename) }}" alt="BTC QR">
+    <br>
+    <button id="update-btn" type="button">Update payment</button>
+    <br><br>
+    <textarea id="log" rows="8" cols="60" readonly></textarea>
+    <input type="hidden" id="apples" value="{{ apples }}">
+    <input type="hidden" id="bananas" value="{{ bananas }}">
+    <input type="hidden" id="name" value="{{ name }}">
+    <input type="hidden" id="address" value="{{ address }}">
+    <input type="hidden" id="email" value="{{ email }}">
+    <script>
+        function log(msg) {
+            const ta = document.getElementById('log');
+            ta.value += msg + '\n';
+            ta.scrollTop = ta.scrollHeight;
+        }
+
+        log('Checkout loaded');
+        document.getElementById('update-btn').addEventListener('click', async () => {
+            log('Updating payment...');
+            const payload = {
+                apples: parseInt(document.getElementById('apples').value || '0'),
+                bananas: parseInt(document.getElementById('bananas').value || '0'),
+                name: document.getElementById('name').value,
+                address: document.getElementById('address').value,
+                email: document.getElementById('email').value,
+            };
+            const resp = await fetch('{{ url_for('update_payment') }}', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            if (resp.ok) {
+                const data = await resp.json();
+                log('Received new hash ' + data.tx_hash);
+                document.getElementById('btc-rate').textContent = data.btc_rate;
+                document.getElementById('btc-amount').textContent = data.total_btc + ' BTC';
+                document.getElementById('tx-hash').textContent = data.tx_hash;
+                document.getElementById('qr').src = '{{ url_for('static', filename='qrcodes/') }}' + data.qr_filename + '?t=' + Date.now();
+            } else {
+                log('Update failed');
+            }
+        });
+    </script>
 </body>
 </html>

@@ -21,6 +21,7 @@ except ImportError:
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'change_me')
+app.logger.setLevel('DEBUG')
 
 # Precomputed SHA3-512 hash of the allowed password
 HASHED_PASSWORD = "16725c4d35c707477e09bee390fbb27e3e294fe84a807940c8e8349891b6ef3137bf18be05144e9adb869436c96b3ba1c1a8b70c2543c5ade24e54b8644f3a47"
@@ -293,6 +294,7 @@ def checkout():
     name = request.form.get('name')
     address = request.form.get('address')
     email = request.form.get('email')
+    app.logger.debug('Checkout requested')
 
     total_eur = apples * 1 + bananas * 2
     rate = fetch_btc_rate()
@@ -319,7 +321,47 @@ def checkout():
         btc_rate=rate,
         tx_hash=tx_hash,
         qr_filename=qr_filename,
+        apples=apples,
+        bananas=bananas,
+        name=name,
+        address=address,
+        email=email,
     )
+
+
+@app.route('/update_payment', methods=['POST'])
+@login_required
+def update_payment():
+    data = request.get_json(force=True)
+    apples = int(data.get('apples', 0))
+    bananas = int(data.get('bananas', 0))
+    name = data.get('name')
+    address = data.get('address')
+    email = data.get('email')
+    app.logger.debug('Updating payment')
+
+    total_eur = apples * 1 + bananas * 2
+    rate = fetch_btc_rate()
+    total_btc = round(total_eur / rate, 8)
+
+    tx_seed = f"{name}|{address}|{email}|{apples}|{bananas}|{total_eur}|{total_btc}|{uuid.uuid4().hex}"
+    tx_hash = hashlib.sha256(tx_seed.encode()).hexdigest()
+
+    btc_uri = f"bitcoin:{BTC_ADDRESS}?amount={total_btc}"
+    qr_img = qrcode.make(btc_uri)
+    qr_dir = os.path.join('static', 'qrcodes')
+    os.makedirs(qr_dir, exist_ok=True)
+    qr_filename = f"{tx_hash}.png"
+    qr_path = os.path.join(qr_dir, qr_filename)
+    qr_img.save(qr_path)
+    app.logger.debug(f"New tx hash {tx_hash}")
+
+    return jsonify({
+        'tx_hash': tx_hash,
+        'qr_filename': qr_filename,
+        'total_btc': total_btc,
+        'btc_rate': rate,
+    })
 
 
 # --- Audio recording endpoint ---
