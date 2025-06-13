@@ -522,6 +522,34 @@ def update_payment():
     })
 
 
+# --- Generic QR generator page ---
+@app.route('/qr', methods=['GET', 'POST'])
+@login_required
+def qr_generator():
+    qr_filename = None
+    if request.method == 'POST':
+        qr_type = request.form.get('qr_type')
+        data = ''
+        if qr_type == 'url':
+            data = request.form.get('url', '')
+        elif qr_type == 'text':
+            data = request.form.get('text', '')
+        elif qr_type == 'btc':
+            address = request.form.get('btc_address', '')
+            amount = request.form.get('btc_amount', '')
+            if address:
+                data = f'bitcoin:{address}'
+                if amount:
+                    data += f'?amount={amount}'
+        if data:
+            qr_dir = os.path.join('static', 'qrcodes')
+            os.makedirs(qr_dir, exist_ok=True)
+            qr_filename = f"{uuid.uuid4().hex}.png"
+            qr_path = os.path.join(qr_dir, qr_filename)
+            create_qr_code(data, qr_path)
+    return render_template('qr_generator.html', qr_filename=qr_filename)
+
+
 # --- Audio recording endpoint ---
 @app.route('/record_message', methods=['POST'])
 @login_required
