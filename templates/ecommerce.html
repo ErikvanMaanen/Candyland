@@ -8,15 +8,15 @@
     <h1>Appels enzo</h1>
     <form method="post" action="{{ url_for('checkout') }}">
         <label>Appel €1:</label>
-        <input type="number" name="apples" min="0" value="0"><br>
+        <input type="number" name="apples" min="0" value="1"><br>
         <label>Tros bananen €2:</label>
-        <input type="number" name="bananas" min="0" value="0"><br>
+        <input type="number" name="bananas" min="0" value="2"><br>
         <label>Geadresseerde:</label>
-        <input type="text" name="name" required><br>
+        <input type="text" name="name" value="Demo User" required><br>
         <label>Adres:</label>
-        <input type="text" name="address" required><br>
+        <input type="text" name="address" value="Demo Street 1" required><br>
         <label>Email (optioneel):</label>
-        <input type="email" name="email"><br>
+        <input type="email" name="email" value="demo@example.com"><br>
         <input type="submit" value="Bestel">
     </form>
 </body>

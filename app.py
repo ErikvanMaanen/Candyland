@@ -12,6 +12,7 @@ import hashlib
 import requests
 import uuid
 import qrcode
+import traceback
 from functools import wraps
 try:
     import speech_recognition as sr
@@ -269,14 +270,17 @@ def run_script_with_args():
 
 # --- Simple ecommerce demo ---
 def fetch_btc_rate():
-    """Fetch current BTC rate in EUR. Fallback to a fixed value on error."""
+    """Fetch current BTC rate in EUR. Returns (rate, error)."""
     try:
-        resp = requests.get('https://api.coindesk.com/v1/bpi/currentprice/EUR.json', timeout=5)
+        resp = requests.get(
+            'https://api.coindesk.com/v1/bpi/currentprice/EUR.json', timeout=5
+        )
         data = resp.json()
         rate = float(data['bpi']['EUR']['rate'].replace(',', ''))
-        return rate
-    except Exception:
-        return 30000.0
+        return rate, None
+    except Exception as e:
+        app.logger.exception("Failed to fetch BTC rate")
+        return 30000.0, str(e)
 
 
 @app.route('/ecommerce')
@@ -288,38 +292,47 @@ def ecommerce():
 @app.route('/checkout', methods=['POST'])
 @login_required
 def checkout():
-    apples = int(request.form.get('apples', 0))
-    bananas = int(request.form.get('bananas', 0))
-    name = request.form.get('name')
-    address = request.form.get('address')
-    email = request.form.get('email')
+    try:
+        apples = int(request.form.get('apples', 0))
+        bananas = int(request.form.get('bananas', 0))
+        name = request.form.get('name')
+        address = request.form.get('address')
+        email = request.form.get('email')
 
-    total_eur = apples * 1 + bananas * 2
-    rate = fetch_btc_rate()
-    total_btc = round(total_eur / rate, 8)
+        total_eur = apples * 1 + bananas * 2
+        rate, rate_error = fetch_btc_rate()
+        total_btc = round(total_eur / rate, 8)
 
-    # Create a unique hash for this transaction
-    tx_seed = f"{name}|{address}|{email}|{apples}|{bananas}|{total_eur}|{total_btc}|{uuid.uuid4().hex}"
-    tx_hash = hashlib.sha256(tx_seed.encode()).hexdigest()
+        # Create a unique hash for this transaction
+        tx_seed = f"{name}|{address}|{email}|{apples}|{bananas}|{total_eur}|{total_btc}|{uuid.uuid4().hex}"
+        tx_hash = hashlib.sha256(tx_seed.encode()).hexdigest()
 
-    # Generate a QR code for payment
-    btc_uri = f"bitcoin:{BTC_ADDRESS}?amount={total_btc}"
-    qr_img = qrcode.make(btc_uri)
-    qr_dir = os.path.join('static', 'qrcodes')
-    os.makedirs(qr_dir, exist_ok=True)
-    qr_filename = f"{tx_hash}.png"
-    qr_path = os.path.join(qr_dir, qr_filename)
-    qr_img.save(qr_path)
+        # Generate a QR code for payment
+        btc_uri = f"bitcoin:{BTC_ADDRESS}?amount={total_btc}"
+        qr_img = qrcode.make(btc_uri)
+        qr_dir = os.path.join('static', 'qrcodes')
+        os.makedirs(qr_dir, exist_ok=True)
+        qr_filename = f"{tx_hash}.png"
+        qr_path = os.path.join(qr_dir, qr_filename)
+        qr_img.save(qr_path)
 
-    return render_template(
-        'checkout.html',
-        total_eur=total_eur,
-        total_btc=total_btc,
-        btc_address=BTC_ADDRESS,
-        btc_rate=rate,
-        tx_hash=tx_hash,
-        qr_filename=qr_filename,
-    )
+        return render_template(
+            'checkout.html',
+            total_eur=total_eur,
+            total_btc=total_btc,
+            btc_address=BTC_ADDRESS,
+            btc_rate=rate,
+            tx_hash=tx_hash,
+            qr_filename=qr_filename,
+            rate_error=rate_error,
+        )
+    except Exception as e:
+        app.logger.exception("Checkout failed")
+        return render_template(
+            'error.html',
+            message=str(e),
+            details=traceback.format_exc(),
+        ), 500
 
 
 # --- Audio recording endpoint ---
