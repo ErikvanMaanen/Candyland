@@ -5,6 +5,7 @@ import os
 import pyodbc
 import sqlite3
 import datetime
+import logging
 from werkzeug.utils import secure_filename
 import wave
 import tempfile
@@ -22,6 +23,73 @@ except ImportError:
 app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'change_me')
 app.logger.setLevel('DEBUG')
+
+# --- Utility functions for database connections ---
+def get_sql_connection(db_name):
+    """Return a connection to the given database either on Azure SQL or local SQLite."""
+    if os.environ.get('WEBSITE_SITE_NAME'):
+        server = os.environ.get('AZURE_SQL_SERVER')
+        username = os.environ.get('AZURE_SQL_USER')
+        password = os.environ.get('AZURE_SQL_PASSWORD')
+        port = os.environ.get('AZURE_SQL_PORT', '1433')
+        conn_str = (
+            f'DRIVER={{ODBC Driver 17 for SQL Server}};'
+            f'SERVER={server},{port};'
+            f'DATABASE={db_name};'
+            f'UID={username};PWD={password}'
+        )
+        return pyodbc.connect(conn_str)
+    else:
+        return sqlite3.connect(f"{db_name.lower()}.db")
+
+
+class SQLLogHandler(logging.Handler):
+    """Logging handler that stores log records in the Log database."""
+
+    def emit(self, record):
+        msg = self.format(record)
+        ts = datetime.datetime.now().isoformat()
+        try:
+            conn = get_sql_connection('Log')
+            cursor = conn.cursor()
+            if isinstance(conn, sqlite3.Connection):
+                cursor.execute(
+                    'CREATE TABLE IF NOT EXISTS Logs ('
+                    'id INTEGER PRIMARY KEY AUTOINCREMENT,'
+                    'timestamp TEXT,'
+                    'level TEXT,'
+                    'message TEXT)'
+                )
+                cursor.execute(
+                    'INSERT INTO Logs (timestamp, level, message) VALUES (?, ?, ?)',
+                    (ts, record.levelname, msg),
+                )
+            else:
+                cursor.execute(
+                    'IF NOT EXISTS (SELECT * FROM sysobjects WHERE name="Logs" AND xtype="U") '
+                    'CREATE TABLE Logs ('
+                    'id INT IDENTITY(1,1) PRIMARY KEY,'
+                    'timestamp NVARCHAR(50),'
+                    'level NVARCHAR(20),'
+                    'message NVARCHAR(MAX))'
+                )
+                conn.commit()
+                cursor.execute(
+                    'INSERT INTO Logs (timestamp, level, message) VALUES (?, ?, ?)',
+                    ts,
+                    record.levelname,
+                    msg,
+                )
+            conn.commit()
+            conn.close()
+        except Exception:
+            # Avoid recursion if logging fails
+            pass
+
+
+log_handler = SQLLogHandler()
+log_handler.setLevel(logging.INFO)
+app.logger.addHandler(log_handler)
 
 # Precomputed SHA3-512 hash of the allowed password
 HASHED_PASSWORD = "16725c4d35c707477e09bee390fbb27e3e294fe84a807940c8e8349891b6ef3137bf18be05144e9adb869436c96b3ba1c1a8b70c2543c5ade24e54b8644f3a47"
@@ -280,6 +348,77 @@ def fetch_btc_rate():
         return 30000.0
 
 
+def create_qr_code(data, path):
+    """Generate a QR code image with high error correction."""
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_H,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(data)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    img.save(path)
+
+
+def record_purchase(apples, bananas, name, address, email, total_eur, total_btc, tx_hash):
+    """Store purchase information in the Purchases database."""
+    ts = datetime.datetime.now().isoformat()
+    conn = get_sql_connection('Purchases')
+    cursor = conn.cursor()
+    if isinstance(conn, sqlite3.Connection):
+        cursor.execute(
+            'CREATE TABLE IF NOT EXISTS Purchases ('
+            'id INTEGER PRIMARY KEY AUTOINCREMENT,'
+            'timestamp TEXT,'
+            'apples INTEGER,'
+            'bananas INTEGER,'
+            'name TEXT,'
+            'address TEXT,'
+            'email TEXT,'
+            'total_eur REAL,'
+            'total_btc REAL,'
+            'tx_hash TEXT)'
+        )
+        cursor.execute(
+            'INSERT INTO Purchases (timestamp, apples, bananas, name, address, email, total_eur, total_btc, tx_hash) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            (ts, apples, bananas, name, address, email, total_eur, total_btc, tx_hash),
+        )
+    else:
+        cursor.execute(
+            'IF NOT EXISTS (SELECT * FROM sysobjects WHERE name="Purchases" AND xtype="U") '
+            'CREATE TABLE Purchases ('
+            'id INT IDENTITY(1,1) PRIMARY KEY,'
+            'timestamp NVARCHAR(50),'
+            'apples INT,'
+            'bananas INT,'
+            'name NVARCHAR(255),'
+            'address NVARCHAR(255),'
+            'email NVARCHAR(255),'
+            'total_eur FLOAT,'
+            'total_btc FLOAT,'
+            'tx_hash NVARCHAR(64))'
+        )
+        conn.commit()
+        cursor.execute(
+            'INSERT INTO Purchases (timestamp, apples, bananas, name, address, email, total_eur, total_btc, tx_hash) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            ts,
+            apples,
+            bananas,
+            name,
+            address,
+            email,
+            total_eur,
+            total_btc,
+            tx_hash,
+        )
+    conn.commit()
+    conn.close()
+
+
 @app.route('/ecommerce')
 @login_required
 def ecommerce():
@@ -306,12 +445,22 @@ def checkout():
 
     # Generate a QR code for payment
     btc_uri = f"bitcoin:{BTC_ADDRESS}?amount={total_btc}"
-    qr_img = qrcode.make(btc_uri)
     qr_dir = os.path.join('static', 'qrcodes')
     os.makedirs(qr_dir, exist_ok=True)
     qr_filename = f"{tx_hash}.png"
     qr_path = os.path.join(qr_dir, qr_filename)
-    qr_img.save(qr_path)
+    create_qr_code(btc_uri, qr_path)
+
+    record_purchase(
+        apples,
+        bananas,
+        name,
+        address,
+        email,
+        total_eur,
+        total_btc,
+        tx_hash,
+    )
 
     return render_template(
         'checkout.html',
@@ -348,12 +497,21 @@ def update_payment():
     tx_hash = hashlib.sha256(tx_seed.encode()).hexdigest()
 
     btc_uri = f"bitcoin:{BTC_ADDRESS}?amount={total_btc}"
-    qr_img = qrcode.make(btc_uri)
     qr_dir = os.path.join('static', 'qrcodes')
     os.makedirs(qr_dir, exist_ok=True)
     qr_filename = f"{tx_hash}.png"
     qr_path = os.path.join(qr_dir, qr_filename)
-    qr_img.save(qr_path)
+    create_qr_code(btc_uri, qr_path)
+    record_purchase(
+        apples,
+        bananas,
+        name,
+        address,
+        email,
+        total_eur,
+        total_btc,
+        tx_hash,
+    )
     app.logger.debug(f"New tx hash {tx_hash}")
 
     return jsonify({
