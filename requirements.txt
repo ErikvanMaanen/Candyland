@@ -6,3 +6,4 @@ ffmpeg-python
 werkzeug
 requests
 qrcode
+pillow
